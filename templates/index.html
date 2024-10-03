@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panel de control de centro de audio distribuido</title>
+  <link href="../static/bootstrap-5.3.3-dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+  <link rel="stylesheet" href="../static/fontawesome-free-6.6.0-web/css/all.min.css">
+  <style>
+    body {
+      background-color: #f8f9fa; /* Fondo gris suave */
+    }
+
+    .card {
+      border: none; /* Sin borde */
+      background-color: #ffffff; /* Fondo blanco para las cards */
+      border-radius: 15px; /* Esquinas redondeadas */
+      padding: 20px; /* Espaciado interno */
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Sombra suave */
+    }
+
+    .card-title {
+      font-size: 1.25rem; /* Tamaño de fuente del título */
+    }
+
+    .btn {
+      width: 50px; /* Ancho del botón */
+      height: 50px; /* Alto del botón */
+      border-radius: 50%; /* Botones circulares */
+      font-size: 1.5rem; /* Tamaño de íconos */
+    }
+
+    /* Personalización del input tipo range */
+    input[type="range"] {
+      width: 100%;
+      height: 1.5rem;
+      padding: 0;
+    }
+
+    .volume-label {
+      margin: 0; /* Eliminamos el margen del label */
+      font-weight: normal; /* Sin negritas */
+    }
+
+    .song-label {
+      margin: 0; /* Eliminamos el margen del label */
+      font-weight: normal; /* Sin negritas */
+      text-align: center; /* Centrar texto */
+    }
+  </style>
+</head>
+<body>
+  <div class="container mt-4">
+    <div class="row align-items-center justify-content-center m-3">
+      <div class="col-auto fs-1">DADWIFI</div>
+      <img src="{{ url_for('static', filename='logo-uis.webp') }}" alt="Logo" class="img-fluid" style="width: 80px; height: 40px;">
+    </div>
+    <h2 class="text-start">Clientes activos:</h2>
+    <div class="row">
+      {% for client in clients %}
+        <div class="col-12 col-lg-6">
+          <div class="card mb-4">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                <p class="card-title mb-0">Cliente {{ client.client_ip[0] }}</p>
+              </div>
+              <p id="label-song-{{ loop.index }}" class="song-label">No song</p>
+              <form id="control-form-{{ loop.index }}">
+                <input type="hidden" id="client-ip-{{ loop.index }}" name="client_ip" value="{{ client.client_ip[0] }}">
+                <label for="volume-{{ loop.index }}" class="form-label volume-label">Volumen:</label>
+                <input type="range" id="volume-{{ loop.index }}" name="volume" min="10" max="100" step="10" value="100" onchange="adjustVolume(event, {{ loop.index }})">
+                <label for="song-{{ loop.index }}" class="form-label volume-label">Seleccionar canción:</label>
+                <select id="song-{{ loop.index }}" name="song" class="form-select mb-4" required>
+                  {% for song in songs %}
+                    <option value="{{ song }}">{{ song }}</option>
+                  {% endfor %}
+                </select>
+                <div class="row justify-content-center">
+                  <button type="button" id="play-{{loop.index}}" class="btn btn-success col-auto m-2" onclick="playSong({{ loop.index }})"><i class="fa-solid fa-play"></i></button>
+                  <button type="button" id="pause-{{loop.index}}" class="btn btn-success col-auto m-2" style="display: none;" onclick="pauseSong({{ loop.index }})"><i class="fa-solid fa-pause"></i></button>
+                  <button type="button" class="btn btn-success col-auto m-2" onclick="stopSong({{ loop.index }})"><i class="fa-solid fa-stop"></i></button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <script>
+    function playSong(clientIndex) {
+      const clientIp = document.getElementById(`client-ip-${clientIndex}`).value;
+      const song = document.getElementById(`song-${clientIndex}`).value;
+      const labelSong = document.getElementById(`label-song-${clientIndex}`);
+      labelSong.innerText = song;
+      console.log("Playing song for client", clientIp, "song:", song);
+
+      // Ocultar botón de reproducir y mostrar botón de pausar
+      document.getElementById(`play-${clientIndex}`).style.display = 'none';
+      document.getElementById(`pause-${clientIndex}`).style.display = 'block';
+
+      let formData = new FormData(document.getElementById(`control-form-${clientIndex}`));
+      fetch("/play", {
+        method: 'POST',
+        body: formData
+      })
+      .then(response => response.json())
+      .then(data => {
+        // Acción adicional si es necesario
+      });
+    }
+
+    function adjustVolume(event, clientIndex) {
+      const clientIp = document.getElementById(`client-ip-${clientIndex}`).value;
+      let volume = event.target.value;
+      console.log("Adjusting volume for client:", clientIp, "to", volume);
+      let formData = new FormData(document.getElementById(`control-form-${clientIndex}`));
+      fetch("/volume", {
+        method: 'POST',
+        body: formData
+      })
+      .then(response => response.json())
+      .then(data => {
+        // Acción adicional si es necesario
+      });
+    }
+
+    function pauseSong(clientIndex) {
+      const clientIp = document.getElementById(`client-ip-${clientIndex}`).value;
+      console.log("Pausing song for client:", clientIp);
+      let formData = new FormData(document.getElementById(`control-form-${clientIndex}`));
+      fetch("/pause", {
+           method: 'POST',
+           body: formData
+       })
+       .then(response => response.json())
+       .then(data => {
+           // Mostrar botón de reproducir y ocultar botón de pausar
+           document.getElementById(`play-${clientIndex}`).style.display = 'block';
+           document.getElementById(`pause-${clientIndex}`).style.display = 'none';
+       });
+    }
+
+    function stopSong(clientIndex) {
+      const clientIp = document.getElementById(`client-ip-${clientIndex}`).value;
+      console.log("Stopping song for client:", clientIp);
+      let formData = new FormData(document.getElementById(`control-form-${clientIndex}`));
+      fetch("/stop", {
+           method: 'POST',
+           body: formData
+       })
+       .then(response => response.json())
+       .then(data => {
+           // Mostrar botón de reproducir y ocultar botón de pausar
+           document.getElementById(`play-${clientIndex}`).style.display = 'block';
+           document.getElementById(`pause-${clientIndex}`).style.display = 'none';
+       });
+    }
+  </script>
+</body>
+</html>
